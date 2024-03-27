@@ -1510,10 +1510,15 @@ export default async function build(
         }[] = []
         for (const [page, entryIssues] of currentEntryIssues) {
           for (const issue of entryIssues.values()) {
-            errors.push({
-              page,
-              message: formatIssue(issue),
-            })
+            const message = formatIssue(issue)
+            if (issue.severity !== 'warning') {
+              errors.push({
+                page,
+                message,
+              })
+            } else {
+              Log.warn(message)
+            }
           }
         }
 

@@ -170,12 +170,20 @@ export function processIssues(
   const relevantIssues = new Set()
 
   for (const issue of result.issues) {
-    if (issue.severity !== 'error' && issue.severity !== 'fatal') continue
+    if (
+      issue.severity !== 'error' &&
+      issue.severity !== 'fatal' &&
+      issue.severity !== 'warning'
+    )
+      continue
+
     const issueKey = getIssueKey(issue)
     const formatted = formatIssue(issue)
     newIssues.set(issueKey, issue)
 
-    relevantIssues.add(formatted)
+    if (issue.severity !== 'warning') {
+      relevantIssues.add(formatted)
+    }
   }
 
   if (relevantIssues.size && throwIssue) {

@@ -273,7 +273,10 @@ export async function createHotReloaderTurbopack(
 
   function sendEnqueuedMessages() {
     for (const [, issueMap] of currentEntryIssues) {
-      if (issueMap.size > 0) {
+      if (
+        [...issueMap.values()].filter((i) => i.severity !== 'warning').length >
+        0
+      ) {
         // During compilation errors we want to delay the HMR events until errors are fixed
         return
       }
@@ -286,7 +289,10 @@ export async function createHotReloaderTurbopack(
       }
 
       for (const [, issueMap] of state.clientIssues) {
-        if (issueMap.size > 0) {
+        if (
+          [...issueMap.values()].filter((i) => i.severity !== 'warning')
+            .length > 0
+        ) {
           // During compilation errors we want to delay the HMR events until errors are fixed
           return
         }
@@ -633,9 +639,14 @@ export async function createHotReloaderTurbopack(
 
         for (const entryIssues of currentEntryIssues.values()) {
           for (const issue of entryIssues.values()) {
-            errors.push({
-              message: formatIssue(issue),
-            })
+            const message = formatIssue(issue)
+            if (issue.severity !== 'warning') {
+              errors.push({
+                message,
+              })
+            } else {
+              Log.warn(message)
+            }
           }
         }
 
@@ -680,24 +691,36 @@ export async function createHotReloaderTurbopack(
 
       if (thisEntryIssues !== undefined && thisEntryIssues.size > 0) {
         // If there is an error related to the requesting page we display it instead of the first error
-        return [...topLevelIssues, ...thisEntryIssues.values()].map((issue) => {
-          const formattedIssue = formatIssue(issue)
-          if (isWellKnownError(issue)) {
-            Log.error(formattedIssue)
-          }
+        return [...topLevelIssues, ...thisEntryIssues.values()]
+          .map((issue) => {
+            const formattedIssue = formatIssue(issue)
+            if (issue.severity === 'warning') {
+              Log.warn(formattedIssue)
+              return null
+            } else if (isWellKnownError(issue)) {
+              Log.error(formattedIssue)
+            }
 
-          return new Error(formattedIssue)
-        })
+            return new Error(formattedIssue)
+          })
+          .filter((error) => error !== null)
       }
 
       // Otherwise, return all errors across pages
       const errors = []
       for (const issue of topLevelIssues) {
-        errors.push(new Error(formatIssue(issue)))
+        if (issue.severity !== 'warning') {
+          errors.push(new Error(formatIssue(issue)))
+        }
       }
       for (const entryIssues of currentEntryIssues.values()) {
         for (const issue of entryIssues.values()) {
-          errors.push(new Error(formatIssue(issue)))
+          const message = formatIssue(issue)
+          if (issue.severity !== 'warning') {
+            errors.push(new Error(message))
+          } else {
+            Log.warn(message)
+          }
         }
       }
       return errors
@@ -845,6 +868,7 @@ export async function createHotReloaderTurbopack(
           ) {
             for (const issueMap of issues.values()) {
               for (const [key, issue] of issueMap) {
+                if (issue.severity === 'warning') continue
                 if (errorsMap.has(key)) continue
 
                 const message = formatIssue(issue)
